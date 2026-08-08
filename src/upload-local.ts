@@ -1,8 +1,10 @@
-import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { open, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { callApi, putPresignedPart } from "./api-client.js";
 import { emitPublishResult } from "./agent-commands.js";
 import { MULTIPART_THRESHOLD_BYTES } from "./format.js";
+import { mapPool, multipartUploadConcurrency } from "./multipart-concurrency.js";
 import {
   appendPublishFields,
   type PublishOptions,
@@ -45,15 +47,30 @@ const apiError = (body: unknown): string => {
   return "Upload failed";
 };
 
-/** One-shot local upload: direct under 4MB, multipart otherwise. */
+/** Read one multipart slice from disk without loading the whole file. */
+const readPartSlice = async (
+  filePath: string,
+  start: number,
+  length: number,
+): Promise<Buffer> => {
+  const handle = await open(filePath, "r");
+  try {
+    const buf = Buffer.allocUnsafe(length);
+    const { bytesRead } = await handle.read(buf, 0, length, start);
+    return bytesRead === length ? buf : buf.subarray(0, bytesRead);
+  } finally {
+    await handle.close();
+  }
+};
+
+/** One-shot local upload: direct under 4MB, streamed multipart otherwise. */
 export const uploadLocalFile = async (
   filePath: string,
   options: UploadOptions,
 ): Promise<PublicFile> => {
   const abs = path.resolve(filePath);
   const fileName = path.basename(abs);
-  const buffer = await readFile(abs);
-  const fileSize = buffer.length;
+  const fileSize = (await stat(abs)).size;
   const contentType = "application/octet-stream";
   const encryptionFields = options.clientEncryption
     ? { clientEncryption: options.clientEncryption }
@@ -62,6 +79,7 @@ export const uploadLocalFile = async (
   const publish = options.publish ?? {};
 
   if (fileSize < MULTIPART_THRESHOLD_BYTES) {
+    const buffer = await readFile(abs);
     const form = new FormData();
     form.append("file", new Blob([buffer], { type: contentType }), fileName);
     if (options.folderId) form.append("folderId", options.folderId);
@@ -111,6 +129,23 @@ export const uploadLocalFile = async (
   }
 
   const { uploadId, key, chunkSize, totalParts, uploadSessionToken } = init.body;
+  const partNumbers = Array.from({ length: totalParts }, (_, index) => index + 1);
+
+  const partDigests: Record<string, string> = {};
+  try {
+    for (const partNumber of partNumbers) {
+      const start = (partNumber - 1) * chunkSize;
+      const end = Math.min(start + chunkSize, fileSize);
+      const slice = await readPartSlice(abs, start, end - start);
+      partDigests[String(partNumber)] = createHash("sha256")
+        .update(slice)
+        .digest("hex");
+    }
+  } catch (error) {
+    progress.stop();
+    throw error;
+  }
+
   const urlsRes = await callApi<{ success: boolean; urls: Record<string, string> }>({
     apiKey: options.apiKey,
     method: "POST",
@@ -119,6 +154,7 @@ export const uploadLocalFile = async (
       key,
       uploadId,
       totalParts,
+      partDigests,
       ...(uploadSessionToken ? { uploadSessionToken } : {}),
     },
   });
@@ -127,21 +163,36 @@ export const uploadLocalFile = async (
     throw new Error(apiError(urlsRes.body));
   }
 
-  const parts: { partNumber: number; etag: string }[] = [];
-  for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
-    const start = (partNumber - 1) * chunkSize;
-    const end = Math.min(start + chunkSize, fileSize);
-    const slice = buffer.subarray(start, end);
-    const url = urlsRes.body.urls[String(partNumber)];
-    if (!url) {
-      progress.stop();
-      throw new Error(`Missing presigned URL for part ${partNumber}`);
-    }
-    const etag = await putPresignedPart(url, slice);
-    parts.push({ partNumber, etag });
-    uploadedBytes = end;
-    progress.update(uploadedBytes, fileSize);
+  const loadedByPart = new Array<number>(totalParts).fill(0);
+  const reportProgress = () => {
+    uploadedBytes = loadedByPart.reduce((sum, value) => sum + value, 0);
+    progress.update(Math.min(uploadedBytes, fileSize), fileSize);
+  };
+
+  let parts: { partNumber: number; etag: string }[];
+  try {
+    parts = await mapPool(
+      partNumbers,
+      multipartUploadConcurrency(fileSize),
+      async (partNumber) => {
+        const start = (partNumber - 1) * chunkSize;
+        const end = Math.min(start + chunkSize, fileSize);
+        const slice = await readPartSlice(abs, start, end - start);
+        const url = urlsRes.body.urls[String(partNumber)];
+        if (!url) {
+          throw new Error(`Missing presigned URL for part ${partNumber}`);
+        }
+        const etag = await putPresignedPart(url, slice);
+        loadedByPart[partNumber - 1] = slice.byteLength;
+        reportProgress();
+        return { partNumber, etag };
+      },
+    );
+  } catch (error) {
+    progress.stop();
+    throw error;
   }
+  parts.sort((a, b) => a.partNumber - b.partNumber);
 
   const complete = await callApi<{
     success: boolean;

@@ -3,73 +3,21 @@ import { createWriteStream } from "node:fs";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { callApi } from "./api-client.js";
+import { apiError, unwrapData } from "./api-error.js";
 import { formatPublishJson } from "./publish-json.js";
-import { printError, printShareResult } from "./tui.js";
+import { createProgressBar, printError, printShareResult } from "./tui.js";
 
 type FileRow = Record<string, unknown>;
 
-function apiError(body: unknown): string {
-  if (body && typeof body === "object") {
-    const o = body as Record<string, unknown>;
-    if (typeof o.error === "string") return o.error;
-    const data = o.data;
-    if (
-      data &&
-      typeof data === "object" &&
-      typeof (data as { error?: string }).error === "string"
-    ) {
-      return (data as { error: string }).error;
-    }
-  }
-  return "Request failed";
-}
-
-function unwrapData(body: unknown): FileRow | null {
-  if (!body || typeof body !== "object") return null;
-  const o = body as { data?: unknown; success?: boolean };
-  if (o.data && typeof o.data === "object") return o.data as FileRow;
-  return body as FileRow;
-}
-
+/** Batch metadata by short codes (`file_code`). */
 export async function cmdInfo(
-  fileId: string,
+  fileCode: string,
   options: { apiKey?: string | null; json?: boolean },
 ): Promise<void> {
   const res = await callApi({
     apiKey: options.apiKey,
     method: "GET",
-    path: `/files/info?fileId=${encodeURIComponent(fileId)}`,
-  });
-  if (!res.ok) {
-    printError(apiError(res.body));
-    process.exitCode = 1;
-    return;
-  }
-  const data = unwrapData(res.body);
-  if (!data) {
-    printError("Empty response");
-    process.exitCode = 1;
-    return;
-  }
-  if (options.json) {
-    console.log(formatPublishJson(data));
-    return;
-  }
-  console.log(JSON.stringify(data, null, 2));
-}
-
-export async function cmdList(options: {
-  apiKey?: string | null;
-  json?: boolean;
-  page?: number;
-  limit?: number;
-}): Promise<void> {
-  const page = options.page ?? 1;
-  const limit = options.limit ?? 50;
-  const res = await callApi({
-    apiKey: options.apiKey,
-    method: "GET",
-    path: `/files/list?page=${page}&limit=${limit}&includeFolders=false`,
+    path: `/files/info?file_code=${encodeURIComponent(fileCode)}`,
   });
   if (!res.ok) {
     printError(apiError(res.body));
@@ -78,6 +26,35 @@ export async function cmdList(options: {
   }
   if (options.json) {
     console.log(JSON.stringify(res.body, null, 2));
+    return;
+  }
+  console.log(JSON.stringify(res.body, null, 2));
+}
+
+export async function cmdList(options: {
+  apiKey?: string | null;
+  json?: boolean;
+  page?: number;
+  limit?: number;
+  includeFolders?: boolean;
+  folderId?: string;
+}): Promise<void> {
+  const page = options.page ?? 1;
+  const limit = options.limit ?? 50;
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+    includeFolders: options.includeFolders ? "true" : "false",
+  });
+  if (options.folderId) params.set("folderId", options.folderId);
+  const res = await callApi({
+    apiKey: options.apiKey,
+    method: "GET",
+    path: `/files/list?${params.toString()}`,
+  });
+  if (!res.ok) {
+    printError(apiError(res.body));
+    process.exitCode = 1;
     return;
   }
   console.log(JSON.stringify(res.body, null, 2));
@@ -112,6 +89,7 @@ export async function cmdDelete(
   }
 }
 
+/** Download via machine `GET /files/download/:fileId` (unlock-aware). */
 export async function cmdDownload(
   fileId: string,
   destPath: string,
@@ -119,26 +97,39 @@ export async function cmdDownload(
     apiKey?: string | null;
     sha256?: string;
     json?: boolean;
+    unlockCode?: string;
+    unlockToken?: string;
+    handoffToken?: string;
   },
 ): Promise<void> {
-  const grant = await callApi<{
+  const params = new URLSearchParams();
+  if (options.unlockCode) params.set("unlockCode", options.unlockCode);
+  if (options.unlockToken) params.set("unlockToken", options.unlockToken);
+  if (options.handoffToken) params.set("handoffToken", options.handoffToken);
+  const qs = params.toString();
+  const mint = await callApi<{
+    success?: boolean;
+    data?: { url?: string; downloadUrl?: string; sha256?: string };
+    url?: string;
     downloadUrl?: string;
-    data?: { downloadUrl?: string };
   }>({
     apiKey: options.apiKey,
-    method: "POST",
-    path: "/downloads/grant",
-    body: { fileId },
+    method: "GET",
+    path: `/files/download/${encodeURIComponent(fileId)}${qs ? `?${qs}` : ""}`,
   });
-  if (!grant.ok) {
-    printError(apiError(grant.body));
+  if (!mint.ok) {
+    printError(apiError(mint.body));
     process.exitCode = 1;
     return;
   }
-  const body = grant.body as { downloadUrl?: string; data?: { downloadUrl?: string } };
-  const url = body.downloadUrl ?? body.data?.downloadUrl;
+  const body = mint.body;
+  const url =
+    body.data?.url ??
+    body.data?.downloadUrl ??
+    body.url ??
+    body.downloadUrl;
   if (!url) {
-    printError("No download URL in grant response");
+    printError("No download URL in response");
     process.exitCode = 1;
     return;
   }
@@ -148,13 +139,30 @@ export async function cmdDownload(
     process.exitCode = 1;
     return;
   }
+  const totalHeader = fileRes.headers.get("content-length");
+  const total = totalHeader ? Number(totalHeader) : 0;
+  const progress =
+    !options.json && Number.isFinite(total) && total > 0
+      ? createProgressBar(destPath)
+      : null;
+  let loaded = 0;
+  progress?.update(0, total);
+
   const hash = createHash("sha256");
   const out = createWriteStream(destPath);
   const reader = Readable.fromWeb(
     fileRes.body as import("node:stream/web").ReadableStream,
   );
-  reader.on("data", (chunk: Buffer) => hash.update(chunk));
-  await pipeline(reader, out);
+  reader.on("data", (chunk: Buffer) => {
+    hash.update(chunk);
+    loaded += chunk.length;
+    progress?.update(loaded, total > 0 ? total : loaded);
+  });
+  try {
+    await pipeline(reader, out);
+  } finally {
+    progress?.stop();
+  }
   const digest = hash.digest("hex");
   if (options.sha256 && options.sha256.toLowerCase() !== digest.toLowerCase()) {
     printError(`sha256 mismatch: expected ${options.sha256}, got ${digest}`);
@@ -191,3 +199,5 @@ export function emitPublishResult(data: FileRow, options: { json?: boolean }): v
     console.log(`handoffUrl: ${data.handoffUrl}`);
   }
 }
+
+export { unwrapData };

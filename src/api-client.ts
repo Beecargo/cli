@@ -1,4 +1,5 @@
 import { getApiBaseUrl, resolveApiKey } from "./env.js";
+import { CLI_USER_AGENT } from "./package-meta.js";
 
 export type ApiResult<T = unknown> = {
   ok: boolean;
@@ -32,7 +33,7 @@ export const callApi = async <T = unknown>(
 
   const headers: Record<string, string> = {
     Accept: "application/json",
-    "User-Agent": "beecargo-cli/0.1.0",
+    "User-Agent": CLI_USER_AGENT,
   };
   if (apiKey) {
     headers.Authorization = `Bearer ${apiKey}`;

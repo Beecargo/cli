@@ -204,6 +204,9 @@ export const uploadRemoteUrlWithUi = async (
         if (result.deletionToken) {
           console.log(`deletionToken: ${result.deletionToken}`);
         }
+        if (result.claimToken) {
+          console.log(`claimToken: ${result.claimToken}`);
+        }
         if (result.unlockCode) {
           console.log(`unlockCode: ${result.unlockCode}`);
         }
