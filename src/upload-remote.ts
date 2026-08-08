@@ -1,6 +1,7 @@
 import { getApiBaseUrl } from "./env.js";
 import { callApi } from "./api-client.js";
 import { emitPublishResult } from "./agent-commands.js";
+import { apiError } from "./api-error.js";
 import { type PublishOptions, withPublishFields } from "./publish-options.js";
 import { createProgressBar, printError } from "./tui.js";
 
@@ -25,18 +26,6 @@ type PublicFile = {
   claimToken?: string;
   unlockCode?: string;
   handoffUrl?: string;
-};
-
-const apiError = (body: unknown): string => {
-  if (body && typeof body === "object") {
-    const o = body as Record<string, unknown>;
-    if (typeof o.error === "string") return o.error;
-    if (o.data && typeof o.data === "object") {
-      const d = o.data as Record<string, unknown>;
-      if (typeof d.error === "string") return d.error;
-    }
-  }
-  return "Remote upload failed";
 };
 
 const parseSseEvents = (chunk: string, onEvent: (data: JobStatus) => void) => {
@@ -105,7 +94,7 @@ const pollJobStatus = async (
       method: "GET",
       path: `/files/remote-multipart/${jobId}${secretQ}`,
     });
-    if (!res.ok) throw new Error(apiError(res.body));
+    if (!res.ok) throw new Error(apiError(res.body, "Remote upload failed"));
     const data = (res.body as { data: JobStatus }).data;
     onStatus(data);
     if (data.status === "completed" || data.status === "failed") {
@@ -149,9 +138,9 @@ export const uploadRemoteUrl = async (
       body: withPublishFields({ url, folderId: options.folderId ?? null }, publish),
     });
     progress.stop();
-    if (!res.ok) throw new Error(apiError(res.body));
+    if (!res.ok) throw new Error(apiError(res.body, "Remote upload failed"));
     const data = (res.body as { data?: PublicFile }).data;
-    if (!data?.id) throw new Error(apiError(res.body));
+    if (!data?.id) throw new Error(apiError(res.body, "Remote upload failed"));
     return data;
   }
 
@@ -164,7 +153,7 @@ export const uploadRemoteUrl = async (
     path: "/files/remote-multipart/init",
     body: withPublishFields({ url, folderId: options.folderId ?? null }, publish),
   });
-  if (!init.ok) throw new Error(apiError(init.body));
+  if (!init.ok) throw new Error(apiError(init.body, "Remote upload failed"));
   const initData = (init.body as { data: { jobId: string; jobSecret?: string } }).data;
   const jobId = initData.jobId;
   const jobSecret = initData.jobSecret ?? null;

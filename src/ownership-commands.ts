@@ -1,5 +1,6 @@
 import { callApi } from "./api-client.js";
 import { apiError, unwrapData } from "./api-error.js";
+import { registerBootstrapAgent } from "./register-bootstrap.js";
 import { saveConfig } from "./config.js";
 import { printError } from "./tui.js";
 
@@ -9,17 +10,7 @@ export async function cmdRegister(options: {
   json?: boolean;
   save?: boolean;
 }): Promise<void> {
-  const res = await callApi<{
-    key?: string;
-    key_prefix?: string;
-    tier?: string;
-    note?: string;
-  }>({
-    apiKey: null,
-    method: "POST",
-    path: "/agent/register",
-    body: { label: options.label ?? "cli-agent" },
-  });
+  const res = await registerBootstrapAgent(options.label ?? "cli-agent");
   if (!res.ok) {
     printError(apiError(res.body, "Register failed"));
     process.exitCode = 1;

@@ -10,6 +10,7 @@ import {
   type PublishOptions,
   withPublishFields,
 } from "./publish-options.js";
+import { apiError } from "./api-error.js";
 import { createProgressBar, printError } from "./tui.js";
 
 type PublicFile = {
@@ -33,18 +34,6 @@ type UploadOptions = {
   idempotencyKey?: string;
   clientEncryption?: string;
   publish?: PublishOptions;
-};
-
-const apiError = (body: unknown): string => {
-  if (body && typeof body === "object") {
-    const o = body as Record<string, unknown>;
-    if (typeof o.error === "string") return o.error;
-    if (o.data && typeof o.data === "object") {
-      const d = o.data as Record<string, unknown>;
-      if (typeof d.error === "string") return d.error;
-    }
-  }
-  return "Upload failed";
 };
 
 /** Read one multipart slice from disk without loading the whole file. */
@@ -94,9 +83,9 @@ export const uploadLocalFile = async (
       formData: form,
       idempotencyKey: options.idempotencyKey,
     });
-    if (!res.ok) throw new Error(apiError(res.body));
+    if (!res.ok) throw new Error(apiError(res.body, "Upload failed"));
     const body = res.body as { success?: boolean; data?: PublicFile };
-    if (!body.data?.id) throw new Error(apiError(res.body));
+    if (!body.data?.id) throw new Error(apiError(res.body, "Upload failed"));
     return body.data;
   }
 
@@ -125,7 +114,7 @@ export const uploadLocalFile = async (
   });
   if (!init.ok) {
     progress.stop();
-    throw new Error(apiError(init.body));
+    throw new Error(apiError(init.body, "Upload failed"));
   }
 
   const { uploadId, key, chunkSize, totalParts, uploadSessionToken } = init.body;
@@ -160,7 +149,7 @@ export const uploadLocalFile = async (
   });
   if (!urlsRes.ok || !urlsRes.body.urls) {
     progress.stop();
-    throw new Error(apiError(urlsRes.body));
+    throw new Error(apiError(urlsRes.body, "Upload failed"));
   }
 
   const loadedByPart = new Array<number>(totalParts).fill(0);
@@ -219,9 +208,9 @@ export const uploadLocalFile = async (
       : undefined,
   });
   progress.stop();
-  if (!complete.ok) throw new Error(apiError(complete.body));
+  if (!complete.ok) throw new Error(apiError(complete.body, "Upload failed"));
   const file = (complete.body as { file?: PublicFile }).file;
-  if (!file?.id) throw new Error(apiError(complete.body));
+  if (!file?.id) throw new Error(apiError(complete.body, "Upload failed"));
   return file;
 };
 

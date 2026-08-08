@@ -37,7 +37,7 @@ Auth resolution order: `--key` → `BEECARGO_API_KEY` → `~/.config/beecargo/co
 | `beecargo upload <path>` | Local file → share link (auto multipart over 4MB) |
 | `beecargo remote <url>` | Sync import from public HTTPS URL |
 | `beecargo remote <url> --async` | Background job + SSE progress (poll fallback) |
-| `beecargo register [--save]` | Mint bootstrap `bc_*` (optional config save) |
+| `beecargo register [--save]` | Mint bootstrap `bc_*` via challenge + PoW (optional config save) |
 | `beecargo claim <fileId> <claimToken>` | Claim anonymous upload onto your key |
 | `beecargo info <fileCode>` | Metadata by share short code (`file_code`) |
 | `beecargo list` | List owned files (`--include-folders`, `--folder-id`) |
