@@ -1,6 +1,6 @@
 {
   "name": "@beecargo/cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": false,
   "description": "Beecargo CLI — publish files and share links (npx @beecargo/cli)",
   "type": "module",

@@ -3,6 +3,11 @@ import path from "node:path";
 import { callApi, putPresignedPart } from "./api-client.js";
 import { emitPublishResult } from "./agent-commands.js";
 import { MULTIPART_THRESHOLD_BYTES } from "./format.js";
+import {
+  appendPublishFields,
+  type PublishOptions,
+  withPublishFields,
+} from "./publish-options.js";
 import { createProgressBar, printError } from "./tui.js";
 
 type PublicFile = {
@@ -16,6 +21,8 @@ type PublicFile = {
   agentLink?: string;
   agent_link?: string;
   downloadUrl?: string;
+  unlockCode?: string;
+  handoffUrl?: string;
 };
 
 type UploadOptions = {
@@ -23,6 +30,7 @@ type UploadOptions = {
   folderId?: string;
   idempotencyKey?: string;
   clientEncryption?: string;
+  publish?: PublishOptions;
 };
 
 const apiError = (body: unknown): string => {
@@ -51,6 +59,8 @@ export const uploadLocalFile = async (
     ? { clientEncryption: options.clientEncryption }
     : {};
 
+  const publish = options.publish ?? {};
+
   if (fileSize < MULTIPART_THRESHOLD_BYTES) {
     const form = new FormData();
     form.append("file", new Blob([buffer], { type: contentType }), fileName);
@@ -58,6 +68,7 @@ export const uploadLocalFile = async (
     if (options.clientEncryption) {
       form.append("clientEncryption", options.clientEncryption);
     }
+    appendPublishFields(form, publish);
     const res = await callApi<{ success: boolean; data: PublicFile }>({
       apiKey: options.apiKey,
       method: "POST",
@@ -139,16 +150,19 @@ export const uploadLocalFile = async (
     apiKey: options.apiKey,
     method: "POST",
     path: "/files/multipart/complete",
-    body: {
-      key,
-      uploadId,
-      parts,
-      fileName,
-      fileSize,
-      contentType,
-      folderId: options.folderId ?? null,
-      ...encryptionFields,
-    },
+    body: withPublishFields(
+      {
+        key,
+        uploadId,
+        parts,
+        fileName,
+        fileSize,
+        contentType,
+        folderId: options.folderId ?? null,
+        ...encryptionFields,
+      },
+      publish,
+    ),
     idempotencyKey: options.idempotencyKey
       ? `${options.idempotencyKey}:complete`
       : undefined,
@@ -178,6 +192,12 @@ export const uploadLocalFileWithUi = async (
       }
       if (file.claimToken) {
         console.log(`claimToken: ${file.claimToken}`);
+      }
+      if (file.unlockCode) {
+        console.log(`unlockCode: ${file.unlockCode}`);
+      }
+      if (file.handoffUrl) {
+        console.log(`handoffUrl: ${file.handoffUrl}`);
       }
     }
     return file;

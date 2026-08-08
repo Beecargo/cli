@@ -1,6 +1,7 @@
 import { getApiBaseUrl } from "./env.js";
 import { callApi } from "./api-client.js";
 import { emitPublishResult } from "./agent-commands.js";
+import { type PublishOptions, withPublishFields } from "./publish-options.js";
 import { createProgressBar, printError } from "./tui.js";
 
 type JobStatus = {
@@ -22,6 +23,8 @@ type PublicFile = {
   sharePath?: string;
   deletionToken?: string;
   claimToken?: string;
+  unlockCode?: string;
+  handoffUrl?: string;
 };
 
 const apiError = (body: unknown): string => {
@@ -128,8 +131,14 @@ const updateProgressFromJob = (
 /** Import a public HTTPS URL; async mode uses SSE with poll fallback. */
 export const uploadRemoteUrl = async (
   url: string,
-  options: { apiKey?: string | null; async?: boolean; folderId?: string },
+  options: {
+    apiKey?: string | null;
+    async?: boolean;
+    folderId?: string;
+    publish?: PublishOptions;
+  },
 ): Promise<PublicFile | JobStatus> => {
+  const publish = options.publish ?? {};
   if (!options.async) {
     const progress = createProgressBar("remote");
     progress.update(0, 0, "fetching…");
@@ -137,7 +146,10 @@ export const uploadRemoteUrl = async (
       apiKey: options.apiKey,
       method: "POST",
       path: "/files/remote-upload",
-      body: { url, folderId: options.folderId ?? null },
+      body: withPublishFields(
+        { url, folderId: options.folderId ?? null },
+        publish,
+      ),
     });
     progress.stop();
     if (!res.ok) throw new Error(apiError(res.body));
@@ -153,7 +165,10 @@ export const uploadRemoteUrl = async (
     apiKey: options.apiKey,
     method: "POST",
     path: "/files/remote-multipart/init",
-    body: { url, folderId: options.folderId ?? null },
+    body: withPublishFields(
+      { url, folderId: options.folderId ?? null },
+      publish,
+    ),
   });
   if (!init.ok) throw new Error(apiError(init.body));
   const initData = (init.body as { data: { jobId: string; jobSecret?: string } }).data;
@@ -184,14 +199,23 @@ export const uploadRemoteUrlWithUi = async (
     async?: boolean;
     folderId?: string;
     json?: boolean;
+    publish?: PublishOptions;
   },
 ) => {
   try {
     const result = await uploadRemoteUrl(url, options);
     if ("id" in result && result.id) {
       emitPublishResult(result as Record<string, unknown>, { json: options.json });
-      if (!options.json && result.deletionToken) {
-        console.log(`deletionToken: ${result.deletionToken}`);
+      if (!options.json) {
+        if (result.deletionToken) {
+          console.log(`deletionToken: ${result.deletionToken}`);
+        }
+        if (result.unlockCode) {
+          console.log(`unlockCode: ${result.unlockCode}`);
+        }
+        if (result.handoffUrl) {
+          console.log(`handoffUrl: ${result.handoffUrl}`);
+        }
       }
       return result;
     }

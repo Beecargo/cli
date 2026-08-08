@@ -4,6 +4,11 @@ import { cmdDelete, cmdDownload, cmdInfo, cmdList } from "./agent-commands.js";
 import { encryptFileForAgeRecipient } from "./age-encrypt.js";
 import { resolveApiKey } from "./env.js";
 import { callApi } from "./api-client.js";
+import { addPublishFlags } from "./publish-flags.js";
+import {
+  publishOptionsFromFlags,
+  type PublishCliFlags,
+} from "./publish-options.js";
 import { uploadLocalFileWithUi } from "./upload-local.js";
 import { uploadRemoteUrlWithUi } from "./upload-remote.js";
 import { watchDownloads } from "./watch-downloads.js";
@@ -17,52 +22,59 @@ program
   .option("--key <apiKey>", "API key (or BEECARGO_API_KEY)")
   .option("--json", "Machine-readable JSON output");
 
-program
-  .command("upload")
-  .argument("<path>", "Local file path")
-  .option("--folder-id <id>", "Optional folder id")
-  .option("--encrypt-age <recipient>", "Encrypt locally before upload (age recipient)")
-  .option("--idempotency-key <key>", "Idempotency-Key for retries")
-  .description("Upload a local file (auto multipart over 4MB)")
-  .action(
-    async (
-      filePath: string,
-      opts: {
-        folderId?: string;
-        encryptAge?: string;
-        idempotencyKey?: string;
-      },
-    ) => {
-      const root = program.opts<{ key?: string; json?: boolean }>();
-      const apiKey = resolveApiKey(root.key);
-      let path = filePath;
-      let cleanup: (() => Promise<void>) | undefined;
-      try {
-        if (opts.encryptAge) {
-          const enc = await encryptFileForAgeRecipient(filePath, opts.encryptAge);
-          path = enc.path;
-          cleanup = enc.cleanup;
-        }
-        await uploadLocalFileWithUi(path, {
-          apiKey,
-          folderId: opts.folderId,
-          json: root.json,
-          idempotencyKey: opts.idempotencyKey,
-          clientEncryption: opts.encryptAge ? "age" : undefined,
-        });
-      } finally {
-        if (cleanup) await cleanup();
-      }
+addPublishFlags(
+  program
+    .command("upload")
+    .argument("<path>", "Local file path")
+    .option("--folder-id <id>", "Optional folder id")
+    .option("--encrypt-age <recipient>", "Encrypt locally before upload (age recipient)")
+    .option("--idempotency-key <key>", "Idempotency-Key for retries")
+    .description("Upload a local file (auto multipart over 4MB)"),
+).action(
+  async (
+    filePath: string,
+    opts: PublishCliFlags & {
+      folderId?: string;
+      encryptAge?: string;
+      idempotencyKey?: string;
     },
-  );
+  ) => {
+    const root = program.opts<{ key?: string; json?: boolean }>();
+    const apiKey = resolveApiKey(root.key);
+    let path = filePath;
+    let cleanup: (() => Promise<void>) | undefined;
+    try {
+      if (opts.encryptAge) {
+        const enc = await encryptFileForAgeRecipient(filePath, opts.encryptAge);
+        path = enc.path;
+        cleanup = enc.cleanup;
+      }
+      await uploadLocalFileWithUi(path, {
+        apiKey,
+        folderId: opts.folderId,
+        json: root.json,
+        idempotencyKey: opts.idempotencyKey,
+        clientEncryption: opts.encryptAge ? "age" : undefined,
+        publish: publishOptionsFromFlags(opts),
+      });
+    } finally {
+      if (cleanup) await cleanup();
+    }
+  },
+);
 
-program
-  .command("remote")
-  .argument("<url>", "Public HTTPS URL to import")
-  .option("--async", "Use background job + SSE progress")
-  .option("--folder-id <id>", "Optional folder id")
-  .description("Import a file from a public URL")
-  .action(async (url: string, opts: { async?: boolean; folderId?: string }) => {
+addPublishFlags(
+  program
+    .command("remote")
+    .argument("<url>", "Public HTTPS URL to import")
+    .option("--async", "Use background job + SSE progress")
+    .option("--folder-id <id>", "Optional folder id")
+    .description("Import a file from a public URL"),
+).action(
+  async (
+    url: string,
+    opts: PublishCliFlags & { async?: boolean; folderId?: string },
+  ) => {
     const root = program.opts<{ key?: string; json?: boolean }>();
     const apiKey = resolveApiKey(root.key);
     await uploadRemoteUrlWithUi(url, {
@@ -70,8 +82,10 @@ program
       async: opts.async,
       folderId: opts.folderId,
       json: root.json,
+      publish: publishOptionsFromFlags(opts),
     });
-  });
+  },
+);
 
 program
   .command("info")

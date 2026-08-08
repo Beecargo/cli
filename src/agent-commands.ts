@@ -184,4 +184,10 @@ export function emitPublishResult(data: FileRow, options: { json?: boolean }): v
   if (typeof sha === "string") console.log(`sha256: ${sha}`);
   const agent = data.agentLink ?? data.agent_link ?? data.downloadUrl;
   if (typeof agent === "string") console.log(`Agent link: ${agent}`);
+  if (typeof data.unlockCode === "string") {
+    console.log(`unlockCode: ${data.unlockCode}`);
+  }
+  if (typeof data.handoffUrl === "string") {
+    console.log(`handoffUrl: ${data.handoffUrl}`);
+  }
 }
