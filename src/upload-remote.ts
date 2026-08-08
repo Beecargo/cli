@@ -146,10 +146,7 @@ export const uploadRemoteUrl = async (
       apiKey: options.apiKey,
       method: "POST",
       path: "/files/remote-upload",
-      body: withPublishFields(
-        { url, folderId: options.folderId ?? null },
-        publish,
-      ),
+      body: withPublishFields({ url, folderId: options.folderId ?? null }, publish),
     });
     progress.stop();
     if (!res.ok) throw new Error(apiError(res.body));
@@ -165,10 +162,7 @@ export const uploadRemoteUrl = async (
     apiKey: options.apiKey,
     method: "POST",
     path: "/files/remote-multipart/init",
-    body: withPublishFields(
-      { url, folderId: options.folderId ?? null },
-      publish,
-    ),
+    body: withPublishFields({ url, folderId: options.folderId ?? null }, publish),
   });
   if (!init.ok) throw new Error(apiError(init.body));
   const initData = (init.body as { data: { jobId: string; jobSecret?: string } }).data;

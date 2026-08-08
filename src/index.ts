@@ -5,10 +5,7 @@ import { encryptFileForAgeRecipient } from "./age-encrypt.js";
 import { resolveApiKey } from "./env.js";
 import { callApi } from "./api-client.js";
 import { addPublishFlags } from "./publish-flags.js";
-import {
-  publishOptionsFromFlags,
-  type PublishCliFlags,
-} from "./publish-options.js";
+import { publishOptionsFromFlags, type PublishCliFlags } from "./publish-options.js";
 import { uploadLocalFileWithUi } from "./upload-local.js";
 import { uploadRemoteUrlWithUi } from "./upload-remote.js";
 import { watchDownloads } from "./watch-downloads.js";
@@ -27,7 +24,10 @@ addPublishFlags(
     .command("upload")
     .argument("<path>", "Local file path")
     .option("--folder-id <id>", "Optional folder id")
-    .option("--encrypt-age <recipient>", "Encrypt locally before upload (age recipient)")
+    .option(
+      "--encrypt-age <recipient>",
+      "Encrypt locally before upload (age recipient)",
+    )
     .option("--idempotency-key <key>", "Idempotency-Key for retries")
     .description("Upload a local file (auto multipart over 4MB)"),
 ).action(

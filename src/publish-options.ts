@@ -48,9 +48,10 @@ export const publishOptionsFromFlags = (flags: PublishCliFlags): PublishOptions 
   if (flags.ttl) out.ttl = flags.ttl;
   if (flags.grace !== undefined && flags.grace !== "") {
     const asNum = Number(flags.grace);
-    out.grace = Number.isFinite(asNum) && String(asNum) === flags.grace.trim()
-      ? asNum
-      : flags.grace;
+    out.grace =
+      Number.isFinite(asNum) && String(asNum) === flags.grace.trim()
+        ? asNum
+        : flags.grace;
   }
   if (flags.maxDownloads) {
     const n = Number(flags.maxDownloads);
