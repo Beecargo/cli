@@ -1,0 +1,44 @@
+{
+  "name": "@beecargo/cli",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Beecargo CLI — publish files and share links (npx @beecargo/cli)",
+  "type": "module",
+  "bin": {
+    "beecargo": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Beecargo/cli.git"
+  },
+  "homepage": "https://beecargo.net",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.scripts.json",
+    "smoke:upload": "tsx scripts/smoke-upload.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "age-encryption": "0.3.0",
+    "cli-progress": "^3.12.0",
+    "commander": "^14.0.3",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/cli-progress": "^3.11.6",
+    "@types/node": "^24.0.0",
+    "tsx": "^4.23.1",
+    "typescript": "^5.7.3"
+  }
+}
