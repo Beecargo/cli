@@ -90,6 +90,32 @@ export async function cmdDelete(
 }
 
 /** Download via machine `GET /files/download/:fileId` (unlock-aware). */
+function scanPendingDelaySeconds(body: unknown): number | null {
+  if (!body || typeof body !== "object") return null;
+  const row = body as Record<string, unknown>;
+  const nested =
+    row.error && typeof row.error === "object"
+      ? (row.error as Record<string, unknown>)
+      : null;
+  const details =
+    nested?.details && typeof nested.details === "object"
+      ? (nested.details as Record<string, unknown>)
+      : row;
+  const pending =
+    details.scanPending === true ||
+    row.scanPending === true ||
+    nested?.errorCode === "SCAN_PENDING" ||
+    row.errorCode === "SCAN_PENDING";
+  if (!pending) return null;
+  const retry =
+    typeof details.retryAfterSeconds === "number"
+      ? details.retryAfterSeconds
+      : typeof row.retryAfterSeconds === "number"
+        ? row.retryAfterSeconds
+        : 15;
+  return Math.max(1, Math.min(60, Math.floor(retry)));
+}
+
 export async function cmdDownload(
   fileId: string,
   destPath: string,
@@ -107,22 +133,46 @@ export async function cmdDownload(
   if (options.unlockToken) params.set("unlockToken", options.unlockToken);
   if (options.handoffToken) params.set("handoffToken", options.handoffToken);
   const qs = params.toString();
-  const mint = await callApi<{
-    success?: boolean;
-    data?: { url?: string; downloadUrl?: string; sha256?: string };
-    url?: string;
-    downloadUrl?: string;
-  }>({
-    apiKey: options.apiKey,
-    method: "GET",
-    path: `/files/download/${encodeURIComponent(fileId)}${qs ? `?${qs}` : ""}`,
-  });
-  if (!mint.ok) {
-    printError(apiError(mint.body));
+  const path = `/files/download/${encodeURIComponent(fileId)}${qs ? `?${qs}` : ""}`;
+
+  let mint: Awaited<ReturnType<typeof callApi>> | null = null;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    mint = await callApi<{
+      success?: boolean;
+      data?: { url?: string; downloadUrl?: string; sha256?: string };
+      url?: string;
+      downloadUrl?: string;
+    }>({
+      apiKey: options.apiKey,
+      method: "GET",
+      path,
+    });
+    if (mint.ok) break;
+    const delay = scanPendingDelaySeconds(mint.body);
+    if (delay == null || attempt === 4) {
+      printError(
+        delay != null
+          ? "Safety check still running. Try again shortly."
+          : apiError(mint.body),
+      );
+      process.exitCode = 1;
+      return;
+    }
+    if (!options.json) {
+      printError(`Safety check in progress — retrying in ${delay}s…`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, delay * 1000));
+  }
+  if (!mint?.ok) {
+    printError(apiError(mint?.body));
     process.exitCode = 1;
     return;
   }
-  const body = mint.body;
+  const body = mint.body as {
+    data?: { url?: string; downloadUrl?: string; sha256?: string };
+    url?: string;
+    downloadUrl?: string;
+  };
   const url =
     body.data?.url ??
     body.data?.downloadUrl ??
