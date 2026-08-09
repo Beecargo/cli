@@ -126,12 +126,14 @@ export async function cmdDownload(
     unlockCode?: string;
     unlockToken?: string;
     handoffToken?: string;
+    purchaseToken?: string;
   },
 ): Promise<void> {
   const params = new URLSearchParams();
   if (options.unlockCode) params.set("unlockCode", options.unlockCode);
   if (options.unlockToken) params.set("unlockToken", options.unlockToken);
   if (options.handoffToken) params.set("handoffToken", options.handoffToken);
+  if (options.purchaseToken) params.set("purchaseToken", options.purchaseToken);
   const qs = params.toString();
   const path = `/files/download/${encodeURIComponent(fileId)}${qs ? `?${qs}` : ""}`;
 

@@ -219,6 +219,10 @@ program
   .option("--unlock-code <code>", "Unlock code for protected shares")
   .option("--unlock-token <token>", "Unlock token for protected shares")
   .option("--handoff-token <token>", "Handoff token from /h/… delivery link")
+  .option(
+    "--purchase-token <token>",
+    "Token from paid-share claim (POST /purchases/claim)",
+  )
   .description("Download via signed URL (unlock-aware) and optional sha256 verify")
   .action(
     async (
@@ -229,6 +233,7 @@ program
         unlockCode?: string;
         unlockToken?: string;
         handoffToken?: string;
+        purchaseToken?: string;
       },
     ) => {
       const root = program.opts<{ key?: string; json?: boolean }>();
@@ -238,6 +243,7 @@ program
         unlockCode: opts.unlockCode,
         unlockToken: opts.unlockToken,
         handoffToken: opts.handoffToken,
+        purchaseToken: opts.purchaseToken,
         json: root.json,
       });
     },
@@ -258,8 +264,13 @@ program
 
 program
   .command("share")
-  .argument("<fileId>", "File id")
+  .argument("[fileId]", "File id (or pass --short-id for a Shipment)")
+  .option("--short-id <id>", "Shipment / share shortId (alternative to fileId)")
   .option("--visibility <mode>", "unlisted | public")
+  .option(
+    "--price-cents <n>",
+    "One-time USD price in cents (min 100; 0 clears). Requires Connect readyToSell",
+  )
   .option("--direct", "Pro: start download when share page opens")
   .option("--no-direct", "Disable direct download")
   .option("--retention <mode>", "ttl | forever")
@@ -268,12 +279,14 @@ program
   .option("--protect", "Mint unlock code (+ optional handoff)")
   .option("--no-protect", "Clear link protection")
   .option("--handoff-message <text>", "Note on /h/… delivery link")
-  .description("Update share settings on an owned file")
+  .description("Update share settings on an owned file or Shipment")
   .action(
     async (
-      fileId: string,
+      fileId: string | undefined,
       opts: {
+        shortId?: string;
         visibility?: string;
+        priceCents?: string;
         direct?: boolean;
         retention?: string;
         expiresAt?: string;
@@ -283,8 +296,23 @@ program
       },
     ) => {
       const root = program.opts<{ key?: string; json?: boolean }>();
+      if (!fileId && !opts.shortId) {
+        printError("Pass fileId and/or --short-id");
+        process.exitCode = 1;
+        return;
+      }
       const body: Record<string, unknown> = {};
+      if (opts.shortId !== undefined) body.shortId = opts.shortId;
       if (opts.visibility !== undefined) body.visibility = opts.visibility;
+      if (opts.priceCents !== undefined) {
+        const n = Number(opts.priceCents);
+        if (!Number.isInteger(n) || n < 0) {
+          printError("--price-cents must be a non-negative integer (0 clears)");
+          process.exitCode = 1;
+          return;
+        }
+        body.priceCents = n;
+      }
       if (opts.direct !== undefined) body.direct = opts.direct;
       if (opts.retention !== undefined) body.retention = opts.retention;
       if (opts.expiresAt !== undefined) body.expiresAt = opts.expiresAt;
@@ -293,8 +321,11 @@ program
       if (opts.handoffMessage !== undefined) {
         body.handoffMessage = opts.handoffMessage;
       }
-      if (Object.keys(body).length === 0) {
-        printError("Pass at least one share flag (--visibility, --protect, …)");
+      const settingKeys = Object.keys(body).filter((k) => k !== "shortId");
+      if (settingKeys.length === 0) {
+        printError(
+          "Pass at least one share flag (--visibility, --price-cents, --protect, …)",
+        );
         process.exitCode = 1;
         return;
       }

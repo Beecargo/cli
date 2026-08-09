@@ -125,7 +125,7 @@ export async function cmdFolderList(options: {
 
 /** Update share settings (MCP beecargo_update_share_settings parity). */
 export async function cmdShare(
-  fileId: string,
+  fileId: string | undefined,
   body: Record<string, unknown>,
   options: { apiKey?: string | null; json?: boolean },
 ): Promise<void> {
@@ -138,7 +138,10 @@ export async function cmdShare(
     apiKey: options.apiKey,
     method: "PATCH",
     path: "/files/share-settings",
-    body: { fileId, ...body },
+    body: {
+      ...(fileId ? { fileId } : {}),
+      ...body,
+    },
   });
   if (!res.ok) {
     printError(apiError(res.body, "Share update failed"));

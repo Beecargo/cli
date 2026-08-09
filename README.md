@@ -43,9 +43,9 @@ Auth resolution order: `--key` → `BEECARGO_API_KEY` → `~/.config/beecargo/co
 | `beecargo list` | List owned files (`--include-folders`, `--folder-id`) |
 | `beecargo folders list\|create` | Folder management |
 | `beecargo delete <fileId>` | Delete (`--token` for anonymous, `--force` when needed) |
-| `beecargo download <fileId> <dest>` | Unlock-aware download (`--unlock-code`, `--sha256`) |
+| `beecargo download <fileId> <dest>` | Unlock/purchase-aware download (`--unlock-code`, `--purchase-token`, `--sha256`) |
 | `beecargo watch downloads <fileId>` | Watch download events until a completed delivery |
-| `beecargo share <fileId>` | Update share settings (`--protect`, `--visibility`, …) |
+| `beecargo share [fileId]` | Update share settings (`--price-cents`, `--short-id`, `--protect`, `--visibility`, …) |
 | `beecargo extend <fileId> <duration>` | Extend TTL additively (`24h`, `7d`, …) |
 
 Global flags: `--key <bc_*>`, `--json`, `--version`.
