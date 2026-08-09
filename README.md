@@ -65,6 +65,8 @@ Parity with MCP `beecargo_upload`:
 | `--retention <ttl\|forever>` | Public Pro retention |
 | `--expires-at <iso>` | Explicit expiry |
 | `--run-id` / `--step` / `--intent` / `--consumer` | Pipeline metadata |
+| `--open-share` | Open a growable multi-file Shipment (then `--share-short-id`) |
+| `--share-short-id <id>` | Attach to an existing growable Shipment |
 | `--folder-id <id>` | Owned folder |
 | `--encrypt-age <recipient>` | Local age encrypt before upload (`upload` only) |
 | `--idempotency-key <key>` | Safe retries (`upload` only) |

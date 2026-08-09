@@ -16,4 +16,12 @@ export const addPublishFlags = (command: Command): Command =>
     .option("--run-id <id>", "Pipeline run id")
     .option("--step <step>", "Pipeline step label")
     .option("--intent <intent>", "Publish intent label")
-    .option("--consumer <name>", "Downstream consumer label");
+    .option("--consumer <name>", "Downstream consumer label")
+    .option(
+      "--open-share",
+      "Open a growable multi-file Shipment (pass --share-short-id later)",
+    )
+    .option(
+      "--share-short-id <code>",
+      "Attach to an existing growable Shipment shortId",
+    );

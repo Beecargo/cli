@@ -15,6 +15,8 @@ export type PublishOptions = {
   step?: string;
   intent?: string;
   consumer?: string;
+  openShare?: boolean;
+  shareShortId?: string;
 };
 
 export type PublishCliFlags = {
@@ -32,6 +34,8 @@ export type PublishCliFlags = {
   step?: string;
   intent?: string;
   consumer?: string;
+  openShare?: boolean;
+  shareShortId?: string;
 };
 
 /** Map Commander flags to API publish fields. */
@@ -64,6 +68,8 @@ export const publishOptionsFromFlags = (flags: PublishCliFlags): PublishOptions 
   if (flags.step) out.step = flags.step;
   if (flags.intent) out.intent = flags.intent;
   if (flags.consumer) out.consumer = flags.consumer;
+  if (flags.openShare === true) out.openShare = true;
+  if (flags.shareShortId?.trim()) out.shareShortId = flags.shareShortId.trim();
   return out;
 };
 
