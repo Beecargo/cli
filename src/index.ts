@@ -269,7 +269,11 @@ program
   .option("--visibility <mode>", "unlisted | public")
   .option(
     "--price-cents <n>",
-    "One-time USD price in cents (min 100; 0 clears). Requires Connect readyToSell",
+    "One-time price in smallest currency unit (min 100; 0 clears). Requires Connect readyToSell",
+  )
+  .option(
+    "--currency <code>",
+    "Charge currency for --price-cents (usd/eur/aed/brl/jpy/krw/cny/rub; default usd)",
   )
   .option("--direct", "Pro: start download when share page opens")
   .option("--no-direct", "Disable direct download")
@@ -287,6 +291,7 @@ program
         shortId?: string;
         visibility?: string;
         priceCents?: string;
+        currency?: string;
         direct?: boolean;
         retention?: string;
         expiresAt?: string;
@@ -312,6 +317,9 @@ program
           return;
         }
         body.priceCents = n;
+      }
+      if (opts.currency !== undefined) {
+        body.currency = opts.currency.trim().toLowerCase();
       }
       if (opts.direct !== undefined) body.direct = opts.direct;
       if (opts.retention !== undefined) body.retention = opts.retention;
