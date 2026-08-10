@@ -17,9 +17,7 @@ export const resolveApiKey = (flagKey?: string): string | null => {
 };
 
 /** Async key resolve including saved config (for commands that can await). */
-export const resolveApiKeyAsync = async (
-  flagKey?: string,
-): Promise<string | null> => {
+export const resolveApiKeyAsync = async (flagKey?: string): Promise<string | null> => {
   const sync = resolveApiKey(flagKey);
   if (sync) return sync;
   if (cachedConfigKey !== undefined) return cachedConfigKey;

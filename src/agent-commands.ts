@@ -175,11 +175,7 @@ export async function cmdDownload(
     url?: string;
     downloadUrl?: string;
   };
-  const url =
-    body.data?.url ??
-    body.data?.downloadUrl ??
-    body.url ??
-    body.downloadUrl;
+  const url = body.data?.url ?? body.data?.downloadUrl ?? body.url ?? body.downloadUrl;
   if (!url) {
     printError("No download URL in response");
     process.exitCode = 1;

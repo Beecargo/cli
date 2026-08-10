@@ -168,18 +168,16 @@ folders
   .option("--limit <n>", "Limit", "50")
   .option("--parent-id <id>", "Parent folder id")
   .description("List folders")
-  .action(
-    async (opts: { page: string; limit: string; parentId?: string }) => {
-      const root = program.opts<{ key?: string; json?: boolean }>();
-      await cmdFolderList({
-        apiKey: await resolveApiKeyAsync(root.key),
-        page: Number(opts.page),
-        limit: Number(opts.limit),
-        parentId: opts.parentId,
-        json: root.json,
-      });
-    },
-  );
+  .action(async (opts: { page: string; limit: string; parentId?: string }) => {
+    const root = program.opts<{ key?: string; json?: boolean }>();
+    await cmdFolderList({
+      apiKey: await resolveApiKeyAsync(root.key),
+      page: Number(opts.page),
+      limit: Number(opts.limit),
+      parentId: opts.parentId,
+      json: root.json,
+    });
+  });
 
 folders
   .command("create")

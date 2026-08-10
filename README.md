@@ -32,21 +32,21 @@ Auth resolution order: `--key` → `BEECARGO_API_KEY` → `~/.config/beecargo/co
 
 ## Commands
 
-| Command | Description |
-| --- | --- |
-| `beecargo upload <path>` | Local file → share link (auto multipart over 4MB) |
-| `beecargo remote <url>` | Sync import from public HTTPS URL |
-| `beecargo remote <url> --async` | Background job + SSE progress (poll fallback) |
-| `beecargo register [--save]` | Mint bootstrap `bc_*` via challenge + PoW (optional config save) |
-| `beecargo claim <fileId> <claimToken>` | Claim anonymous upload onto your key |
-| `beecargo info <fileCode>` | Metadata by share short code (`file_code`) |
-| `beecargo list` | List owned files (`--include-folders`, `--folder-id`) |
-| `beecargo folders list\|create` | Folder management |
-| `beecargo delete <fileId>` | Delete (`--token` for anonymous, `--force` when needed) |
-| `beecargo download <fileId> <dest>` | Unlock/purchase-aware download (`--unlock-code`, `--purchase-token`, `--sha256`) |
-| `beecargo watch downloads <fileId>` | Watch download events until a completed delivery |
-| `beecargo share [fileId]` | Update share settings (`--price-cents`, `--short-id`, `--protect`, `--visibility`, …) |
-| `beecargo extend <fileId> <duration>` | Extend TTL additively (`24h`, `7d`, …) |
+| Command                                | Description                                                                           |
+| -------------------------------------- | ------------------------------------------------------------------------------------- |
+| `beecargo upload <path>`               | Local file → share link (auto multipart over 4MB)                                     |
+| `beecargo remote <url>`                | Sync import from public HTTPS URL                                                     |
+| `beecargo remote <url> --async`        | Background job + SSE progress (poll fallback)                                         |
+| `beecargo register [--save]`           | Mint bootstrap `bc_*` via challenge + PoW (optional config save)                      |
+| `beecargo claim <fileId> <claimToken>` | Claim anonymous upload onto your key                                                  |
+| `beecargo info <fileCode>`             | Metadata by share short code (`file_code`)                                            |
+| `beecargo list`                        | List owned files (`--include-folders`, `--folder-id`)                                 |
+| `beecargo folders list\|create`        | Folder management                                                                     |
+| `beecargo delete <fileId>`             | Delete (`--token` for anonymous, `--force` when needed)                               |
+| `beecargo download <fileId> <dest>`    | Unlock/purchase-aware download (`--unlock-code`, `--purchase-token`, `--sha256`)      |
+| `beecargo watch downloads <fileId>`    | Watch download events until a completed delivery                                      |
+| `beecargo share [fileId]`              | Update share settings (`--price-cents`, `--short-id`, `--protect`, `--visibility`, …) |
+| `beecargo extend <fileId> <duration>`  | Extend TTL additively (`24h`, `7d`, …)                                                |
 
 Global flags: `--key <bc_*>`, `--json`, `--version`.
 
@@ -54,22 +54,22 @@ Global flags: `--key <bc_*>`, `--json`, `--version`.
 
 Parity with MCP `beecargo_upload`:
 
-| Flag | Purpose |
-| --- | --- |
-| `--ttl <preset>` | Expiry preset (`1h`, `24h`, `7d`) |
-| `--grace <value>` | Grace after expiry |
-| `--max-downloads <n>` / `--once` | Burn / download cap |
-| `--protect` | Mint unlock code (+ optional `--handoff-message`) |
-| `--visibility <unlisted\|public>` | Listing |
-| `--direct` | Pro: auto-start download on share page |
-| `--retention <ttl\|forever>` | Public Pro retention |
-| `--expires-at <iso>` | Explicit expiry |
-| `--run-id` / `--step` / `--intent` / `--consumer` | Pipeline metadata |
-| `--open-share` | Open a growable multi-file Shipment (then `--share-short-id`) |
-| `--share-short-id <id>` | Attach to an existing growable Shipment |
-| `--folder-id <id>` | Owned folder |
-| `--encrypt-age <recipient>` | Local age encrypt before upload (`upload` only) |
-| `--idempotency-key <key>` | Safe retries (`upload` only) |
+| Flag                                              | Purpose                                                       |
+| ------------------------------------------------- | ------------------------------------------------------------- |
+| `--ttl <preset>`                                  | Expiry preset (`1h`, `24h`, `7d`)                             |
+| `--grace <value>`                                 | Grace after expiry                                            |
+| `--max-downloads <n>` / `--once`                  | Burn / download cap                                           |
+| `--protect`                                       | Mint unlock code (+ optional `--handoff-message`)             |
+| `--visibility <unlisted\|public>`                 | Listing                                                       |
+| `--direct`                                        | Pro: auto-start download on share page                        |
+| `--retention <ttl\|forever>`                      | Public Pro retention                                          |
+| `--expires-at <iso>`                              | Explicit expiry                                               |
+| `--run-id` / `--step` / `--intent` / `--consumer` | Pipeline metadata                                             |
+| `--open-share`                                    | Open a growable multi-file Shipment (then `--share-short-id`) |
+| `--share-short-id <id>`                           | Attach to an existing growable Shipment                       |
+| `--folder-id <id>`                                | Owned folder                                                  |
+| `--encrypt-age <recipient>`                       | Local age encrypt before upload (`upload` only)               |
+| `--idempotency-key <key>`                         | Safe retries (`upload` only)                                  |
 
 Anonymous uploads work without `--key`; save `deletionToken` / `claimToken` when printed. Protected uploads also print `unlockCode` / `handoffUrl`.
 

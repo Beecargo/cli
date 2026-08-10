@@ -9,8 +9,7 @@ export type BeecargoConfig = {
 /** Resolve ~/.config/beecargo/config.json (or $XDG_CONFIG_HOME). */
 export const configPath = (): string => {
   const base =
-    process.env.XDG_CONFIG_HOME?.trim() ||
-    path.join(os.homedir(), ".config");
+    process.env.XDG_CONFIG_HOME?.trim() || path.join(os.homedir(), ".config");
   return path.join(base, "beecargo", "config.json");
 };
 
